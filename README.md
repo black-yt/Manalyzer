@@ -8,7 +8,9 @@
 [\[🤗 HuggingFace\]](https://huggingface.co/datasets/CoCoOne/Manalyzer) 
 
 </div>
+
 ---
+
 <img src="./assets/comparison.png" width="100%" alt="main-results" align="center">
 
 
