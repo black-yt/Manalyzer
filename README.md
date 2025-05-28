@@ -2,7 +2,7 @@
 
 # Manalyzer: End-to-end Automated Meta-analysis with Multi-agent System
 
-<a href=""><img src='https://img.shields.io/badge/arXiv-Paper-red?logo=arxiv&logoColor=white' alt='arXiv'></a>
+<a href="https://arxiv.org/pdf/2505.20310"><img src='https://img.shields.io/badge/arXiv-Paper-red?logo=arxiv&logoColor=white' alt='arXiv'></a>
 
 [\[📖 Project Page\]](https://black-yt.github.io/meta-analysis-page/) 
 [\[🤗 HuggingFace\]](https://huggingface.co/datasets/CoCoOne/Manalyzer) 
