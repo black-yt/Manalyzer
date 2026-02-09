@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enhanced Three-Row WebUI</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4a6fa5;
+            --secondary-color: #6b8cae;
+            --accent-color: #4CAF50;
+            --light-gray: #f5f7fa;
+            --dark-gray: #333;
+            --border-radius: 12px;
+            --box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        body {
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #f9f9f9;
+            color: var(--dark-gray);
+            line-height: 1.6;
+        }
+
+        .row {
+            display: flex;
+            flex: 1;
+            padding: 15px;
+            box-sizing: border-box;
+            margin: 10px;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            border: 2px solid var(--primary-color);
+            transition: var(--transition);
+            overflow: hidden; /* Prevent overflow */
+        }
+
+        .row:hover {
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+            transform: translateY(-2px);
+        }
+
+        .input-box {
+            flex: 1;
+            margin: 0 10px;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        .input-box::after {
+            content: attr(data-description);
+            position: absolute;
+            bottom: -25px;
+            left: 0;
+            font-size: 0.8rem;
+            color: var(--secondary-color);
+            font-style: italic;
+        }
+
+        .input-box label {
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: var(--primary-color);
+            font-size: 0.95rem;
+        }
+
+        textarea {
+            flex: 1;
+            padding: 12px;
+            resize: none;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.9rem;
+            transition: var(--transition);
+        }
+
+        textarea:focus {
+            border-color: var(--primary-color);
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(74, 111, 165, 0.2);
+        }
+
+        .confirm-btn {
+            margin-top: 10px;
+            padding: 12px 24px;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: var(--transition);
+            align-self: center;
+            height: fit-content;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .confirm-btn:hover {
+            background-color: #3d8b40;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+        }
+
+        .log-container, .file-container {
+            flex: 1;
+            margin: 0 10px;
+            border: 2px solid var(--primary-color);
+            padding: 15px;
+            overflow-y: auto; /* Enable vertical scrolling */
+            white-space: pre-wrap;
+            border-radius: var(--border-radius);
+            background-color: white;
+            transition: var(--transition);
+            max-height: 100%; /* Ensure it doesn't exceed row height */
+        }
+
+        .log-container {
+            font-family: 'Roboto Mono', monospace;
+            font-size: 0.9rem;
+            position: relative;
+        }
+
+        .log-container::before {
+            content: "";
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            background: white;
+            padding: 0 10px;
+            font-weight: 500;
+            color: var(--primary-color);
+            font-size: 0.85rem;
+        }
+
+        .file-container {
+            font-family: 'Roboto Mono', monospace;
+            position: relative;
+        }
+
+        .file-container::before {
+            content: "";
+            position: absolute;
+            top: 10px;
+            left: 15px;
+            background: white;
+            padding: 0 10px;
+            font-weight: 500;
+            color: var(--primary-color);
+            font-size: 0.85rem;
+        }
+
+        .folder {
+            cursor: pointer;
+            margin-left: 10px;
+            padding: 5px 0;
+            transition: var(--transition);
+            border-radius: 4px;
+            padding-left: 5px;
+        }
+
+        .folder:hover {
+            background-color: rgba(74, 111, 165, 0.1);
+        }
+
+        .folder::before {
+            content: "📁 ";
+        }
+
+        .file {
+            margin-left: 20px;
+            padding: 3px 0;
+            transition: var(--transition);
+            border-radius: 4px;
+            padding-left: 5px;
+        }
+
+        .file:hover {
+            background-color: rgba(74, 111, 165, 0.05);
+        }
+
+        .file::before {
+            content: "📄 ";
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .progress-container {
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            position: relative;
+        }
+
+        .progress-container::before {
+            content: "Processing Status";
+            position: absolute;
+            top: 5px;
+            left: 35px;
+            background: white;
+            padding: 0 10px;
+            font-weight: 500;
+            color: var(--primary-color);
+            font-size: 0.85rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 30px;
+            background-color: #f1f1f1;
+            position: relative;
+            border-radius: 15px;
+            overflow: hidden;
+            border: 2px solid var(--primary-color);
+            margin-top: 15px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            border-radius: 15px;
+            width: 0%;
+            transition: width 0.8s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+        }
+
+        .progress-milestones {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 15px;
+            position: relative;
+        }
+
+        .milestone {
+            position: relative;
+            text-align: center;
+            flex: 1;
+            font-weight: 500;
+            color: var(--secondary-color);
+            transition: var(--transition);
+        }
+
+        .milestone.active {
+            color: var(--primary-color);
+            font-weight: 600;
+        }
+
+        .milestone::before {
+            content: "";
+            position: absolute;
+            top: -15px;
+            left: 50%;
+            width: 12px;
+            height: 12px;
+            background-color: #ccc;
+            border-radius: 50%;
+            transform: translateX(-50%);
+            transition: var(--transition);
+            border: 2px solid white;
+            box-sizing: border-box;
+        }
+
+        .milestone.active::before {
+            background-color: var(--accent-color);
+            width: 14px;
+            height: 14px;
+            top: -16px;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .pulse {
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <!-- First Row: Input Boxes -->
+    <div class="row">
+        <div class="input-box" data-description="">
+            <label for="field">Field:</label>
+            <textarea id="field" placeholder="e.g. Economy, Biology, ..."></textarea>
+        </div>
+        <div class="input-box" data-description="">
+            <label for="topic_of_interest">Topic of Interest:</label>
+            <textarea id="topic_of_interest" placeholder="e.g. GDP around the world from 2000 to 2020."></textarea>
+        </div>
+        <div class="input-box" data-description="">
+            <label for="table_template">Table Template:</label>
+            <textarea id="table_template" placeholder="Markdown table"></textarea>
+        </div>
+        <button class="confirm-btn pulse" onclick="submitInfo()">Confirm</button>
+    </div>
+
+    <!-- Second Row: Log and File Viewer -->
+    <div class="row">
+        <div class="log-container" id="logContent">
+            <!-- Chat log will be displayed here -->
+        </div>
+        <div class="file-container" id="fileStructure">
+            <!-- File structure will be displayed here -->
+        </div>
+    </div>
+
+    <!-- Third Row: Progress Bar -->
+    <div class="row">
+        <div class="progress-container">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="progress-milestones">
+                <div class="milestone" id="milestoneA">Document Collector</div>
+                <div class="milestone" id="milestoneB">Literature Reviewer</div>
+                <div class="milestone" id="milestoneC">Data Extractor with Checker</div>
+                <div class="milestone" id="milestoneD">Data Analyst</div>
+                <div class="milestone" id="milestoneE">Reporter</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Track expanded folders
+        const expandedFolders = new Set();
+
+        // Submit info to backend
+        function submitInfo() {
+            const field = document.getElementById('field').value;
+            const topic_of_interest = document.getElementById('topic_of_interest').value;
+            const table_template = document.getElementById('table_template').value;
+            
+            const formData = new FormData();
+            formData.append('field', field);
+            formData.append('topic_of_interest', topic_of_interest);
+            formData.append('table_template', table_template);
+            
+            // Add pulse animation to button
+            const btn = document.querySelector('.confirm-btn');
+            btn.classList.add('pulse');
+            
+            fetch('/submit_info', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Show success animation
+                    btn.classList.remove('pulse');
+                    btn.style.backgroundColor = '#2E7D32';
+                    btn.textContent = '✓ Submitted';
+                    
+                    setTimeout(() => {
+                        btn.style.backgroundColor = '';
+                        btn.textContent = 'Confirm';
+                        document.getElementById('field').value = '';
+                        document.getElementById('topic_of_interest').value = '';
+                        document.getElementById('table_template').value = '';
+                    }, 2000);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                btn.classList.remove('pulse');
+                btn.style.backgroundColor = '#C62828';
+                btn.textContent = 'Error!';
+                
+                setTimeout(() => {
+                    btn.style.backgroundColor = '';
+                    btn.textContent = 'Confirm';
+                }, 2000);
+            });
+        }
+
+        // Update chat log
+        function updateChatLog() {
+            fetch('/get_chat_log')
+                .then(response => response.json())
+                .then(data => {
+                    const logContent = document.getElementById('logContent');
+                    logContent.textContent = data.content;
+                    // Auto-scroll to bottom
+                    logContent.scrollTop = logContent.scrollHeight;
+                });
+        }
+
+        // Update file structure
+        function updateFileStructure() {
+            fetch('/get_file_structure')
+                .then(response => response.json())
+                .then(data => {
+                    const container = document.getElementById('fileStructure');
+                    container.innerHTML = '';
+                    
+                    // Store current scroll position
+                    const scrollPosition = container.scrollTop;
+                    
+                    // Render children directly without root folder
+                    if (data.children && data.children.length > 0) {
+                        data.children.forEach(child => {
+                            renderFileTree(container, child);
+                        });
+                    } else {
+                        container.textContent = "File Explorer";
+                    }
+                    
+                    // Restore expanded state
+                    document.querySelectorAll('.folder').forEach(folder => {
+                        const folderName = folder.textContent.trim();
+                        if (expandedFolders.has(folderName)) {
+                            const children = folder.parentElement.querySelector('.children');
+                            if (children) {
+                                children.classList.remove('hidden');
+                            }
+                        }
+                        
+                        folder.addEventListener('click', function(e) {
+                            e.stopPropagation();
+                            const children = this.parentElement.querySelector('.children');
+                            if (children) {
+                                children.classList.toggle('hidden');
+                                const folderName = this.textContent.trim();
+                                if (children.classList.contains('hidden')) {
+                                    expandedFolders.delete(folderName);
+                                } else {
+                                    expandedFolders.add(folderName);
+                                }
+                            }
+                        });
+                    });
+                    
+                    // Restore scroll position
+                    container.scrollTop = scrollPosition;
+                });
+        }
+
+        // Render file tree recursively
+        function renderFileTree(container, node, level = 0) {
+            const element = document.createElement('div');
+            element.style.marginLeft = `${level * 10}px`;
+
+            if (node.children && node.children.length > 0) {
+                const folderElement = document.createElement('div');
+                folderElement.classList.add('folder');
+                folderElement.textContent = node.name;
+
+                const childrenContainer = document.createElement('div');
+                childrenContainer.classList.add('children');
+
+                node.children.forEach(child => {
+                    renderFileTree(childrenContainer, child, level + 1);
+                });
+
+                element.appendChild(folderElement);
+                element.appendChild(childrenContainer);
+
+                // Initially hide children unless they were previously expanded
+                if (!expandedFolders.has(node.name)) {
+                    childrenContainer.classList.add('hidden');
+                }
+            } else if (node.name.includes('.')) { // Check for file extension
+                const fileElement = document.createElement('div');
+                fileElement.classList.add('file');
+                fileElement.textContent = node.name;
+                element.appendChild(fileElement);
+            } else {
+                // Render as folder if no valid file extension
+                const folderElement = document.createElement('div');
+                folderElement.classList.add('folder');
+                folderElement.textContent = node.name;
+                element.appendChild(folderElement);
+            }
+
+            container.appendChild(element);
+        }
+
+        // Update progress bar
+        function updateProgress() {
+            fetch('/get_progress')
+                .then(response => response.json())
+                .then(data => {
+                    const progress = data.progress;
+                    const progressFill = document.getElementById('progressFill');
+                    const percentage = (progress / 5) * 100;
+                    progressFill.style.width = `${percentage}%`;
+                    
+                    document.getElementById('milestoneA').classList.toggle('active', progress >= 1);
+                    document.getElementById('milestoneB').classList.toggle('active', progress >= 2);
+                    document.getElementById('milestoneC').classList.toggle('active', progress >= 3);
+                    document.getElementById('milestoneD').classList.toggle('active', progress >= 4);
+                    document.getElementById('milestoneE').classList.toggle('active', progress >= 5);
+                });
+        }
+
+        // Initial load
+        updateChatLog();
+        updateFileStructure();
+        updateProgress();
+
+        // Set up periodic updates (every 5 seconds)
+        setInterval(() => {
+            updateChatLog();
+            updateFileStructure();
+            updateProgress();
+        }, 5000);
+    </script>
+</body>
+</html>
