@@ -35,7 +35,7 @@ for k, v in field_info.items():
 
 eval_model = EvaluationModel(field_info['field'], field_info['topic_of_interest'], field_info['required_data'], api_key=api_key, base_url=base_url, model=model)
 
-ds = load_dataset("CoCoOne/2", split=field)
+ds = load_dataset("CoCoOne/Manalyzer", split=field)
 
 def save_result(idx, total, **kwargs):
     save_path = os.path.join(save_dir, model.split('/')[-1], field, f'{idx+1:04}_of_{total:04}.json')
