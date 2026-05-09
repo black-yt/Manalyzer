@@ -15,6 +15,8 @@
 
 ## 🆕 Updates/News
 
+🚩 **Updates** (2026-05-09) Added detailed Chinese/English tutorials, lightweight smoke tests, and conservative maintenance fixes for the released code.
+
 🚩 **Updates** (2026-02-09) Code has been released.
 
 🚩 **Updates** (2025-05-22) Initial upload to arXiv [[PDF]](https://arxiv.org/pdf/2505.20310). The code will be released soon.
