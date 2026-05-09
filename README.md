@@ -43,12 +43,19 @@ Manalyzer is a multi-agent system incorporating tool calling and feedback mechan
 ## 🔥 Quick Start
 
 ```bash
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+
 export LLM_API_KEY="your-api-key"
 export LLM_BASE_URL="your-api-base-url"
 export MINERU_TOKEN="your-mineru-api-key" # Apply for the API at https://mineru.net/
 
 python workflow/main.py
 ```
+
+For a detailed walkthrough, see the [中文教程](./docs/tutorial_zh.md) or [English tutorial](./docs/tutorial_en.md).
 
 ## 📬 Contact Us
 

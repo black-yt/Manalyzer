@@ -18,6 +18,7 @@ __pycache__/
 .vscode/
 */__pycache__
 *.txt
+!requirements.txt
 *.csv
 *.sh
 *.zip

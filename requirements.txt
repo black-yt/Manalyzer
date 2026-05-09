@@ -1,0 +1,20 @@
+# Manalyzer runtime dependencies.
+# Install with: python -m pip install -r requirements.txt
+
+structai
+openai
+requests
+arxiv
+urllib3
+beautifulsoup4
+markdown
+pandas
+numpy
+scikit-learn
+matplotlib
+Pillow
+python-Levenshtein
+tqdm
+flask
+flask-cors
+datasets

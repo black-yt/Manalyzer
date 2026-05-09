@@ -47,7 +47,7 @@ Manalyzer/
 ├── utils/        # Logging, reading, cleaning, evaluation helpers
 ├── webui/        # Flask WebUI
 ├── workflow/     # Main command-line and WebUI workflow entry points
-├── AGENTS.md     # Repository guide for maintainers and coding agents
+├── requirements.txt # Python dependency entry point
 └── README.md     # Project overview and paper information
 ```
 
@@ -62,7 +62,7 @@ Recommended reading order:
 
 ### 4.1 Python Environment
 
-The repository currently does not include `requirements.txt`, `pyproject.toml`, or `environment.yml`. Dependencies must therefore be inferred from imports in the source code.
+The repository provides `requirements.txt` as the unified Python dependency entry point.
 
 Use an isolated virtual environment:
 
@@ -70,19 +70,21 @@ Use an isolated virtual environment:
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 ```
 
-### 4.2 Main Python Dependencies
+### 4.2 Dependency List
 
-A complete run typically requires:
+`requirements.txt` covers the main runtime dependencies used by the current source code:
 
-```bash
-pip install requests arxiv urllib3 beautifulsoup4 markdown
-pip install pandas numpy scikit-learn matplotlib Pillow python-Levenshtein tqdm
-pip install flask flask-cors openai datasets
-```
+- LLM and evaluation interfaces: `structai`, `openai`.
+- Academic search and network requests: `requests`, `arxiv`, `urllib3`.
+- Markdown and HTML parsing: `beautifulsoup4`, `markdown`.
+- Data processing and visualization: `pandas`, `numpy`, `scikit-learn`, `matplotlib`, `Pillow`, `python-Levenshtein`.
+- WebUI and benchmark support: `flask`, `flask-cors`, `datasets`.
+- Progress display: `tqdm`.
 
-The workflow also requires `structai`. This package is not defined inside the repository, but the code uses it heavily:
+The key dependency is `structai`. This package is not defined inside the repository, but the workflow uses it heavily:
 
 - `structai.LLMAgent`
 - `structai.multi_thread`
@@ -90,7 +92,7 @@ The workflow also requires `structai`. This package is not defined inside the re
 - `structai.save_file`
 - `structai.get_all_file_paths`
 
-If `structai` is missing, the full workflow cannot run. Some smoke tests use fake `structai` objects so that static and local behavior can still be tested in a minimal environment.
+If `structai` is missing, the full workflow cannot run. Some smoke tests use fake `structai` objects so that static and local behavior can still be tested without a real API environment.
 
 ### 4.3 API Environment Variables
 
@@ -157,11 +159,201 @@ Example:
 
 This template means that each output row should describe the concentration of one heavy metal in one river location.
 
-## 6. Full Run: Command-Line Mode
+## 6. Pipeline Stage Details
+
+`workflow/main.py` runs nine stages in order. Understanding these stages helps debug the full pipeline and identify which module produced each output file.
+
+### 6.1 PaperCollector: Paper Search and Download
+
+File: `agents/paper_collector.py`
+
+Responsibilities:
+
+1. Generate search keyword groups from the user topic.
+2. Search papers through arXiv or Crossref.
+3. Download PDF files.
+4. Write `0_paper_info.json`.
+
+The default search engine is `arxiv`. If `crossref` is used, DOI-based downloading may use the Sci-Hub path. That path depends on external website availability and may have compliance implications. Users should evaluate it before use.
+
+Typical output:
+
+```text
+data/<field>/<timestamp>/
+├── 0_pdf/
+└── 0_paper_info.json
+```
+
+Example `0_paper_info.json`:
+
+```json
+{
+  "00000": {
+    "title": "Example Paper Title",
+    "url": "https://arxiv.org/pdf/xxxx.xxxxx",
+    "pdf_path": "data/environment/2026_0209_185427/0_pdf/00000.pdf"
+  }
+}
+```
+
+### 6.2 PaperParser: PDF Parsing
+
+File: `agents/paper_parser.py`
+
+Responsibilities:
+
+1. Read `0_paper_info.json`.
+2. Call `structai.read_pdf(pdf_paths)`.
+3. Locate each paper's `*_content_list.json` and `full.md`.
+4. Write `1_content_list_info.json`.
+
+This stage depends on PDF parsing support from MinerU or `structai`. If `MINERU_TOKEN` is not configured or the service is unavailable, this stage may fail.
+
+### 6.3 PaperReviewer: Paper Screening
+
+File: `agents/paper_reviewer.py`
+
+Responsibilities:
+
+1. Read each paper's Markdown text.
+2. Clean short and invalid content.
+3. Score each paper independently:
+   - `Topic Relevance`
+   - `Feasibility`
+4. Score relative relevance within batches:
+   - `Relative Score`
+5. Compute:
+   - `Final Score = (Topic Relevance + Feasibility) * Relative Score`
+
+Output files:
+
+```text
+2_paper_score.json
+3_selected_paper.json
+```
+
+`select_paper(save_dir, 10)` selects the top 10 papers by final score. If fewer papers exist, all available papers may be retained.
+
+### 6.4 TableProcessor: Table and Figure Conversion
+
+File: `agents/table_processor.py`
+
+Responsibilities:
+
+1. Read `3_selected_paper.json`.
+2. Traverse each paper's content list.
+3. Identify tables, images, and charts.
+4. Use a vision LLM to convert tables to Markdown or images to textual descriptions.
+5. Write `2_text/<paper_idx>.json` and `4_converted_paper.json`.
+
+This stage strongly affects later extraction quality. If table conversion is inaccurate, the final extracted data will also be less reliable.
+
+### 6.5 DataExtratorWithChecker: Extraction and Feedback Checking
+
+File: `agents/data_extrator_checker.py`
+
+Responsibilities:
+
+1. Collect candidate information from table and text paths.
+2. First-level filtering: decide whether each table or section may contain relevant data.
+3. Second-level integration: convert relevant data into the user-provided table schema.
+4. Check the result using:
+   - `Data Accuracy`
+   - `Semantic Consistency`
+   - `Data Completeness`
+   - `Overall Score`
+5. If the checker rejects the answer, regenerate the extraction using feedback.
+
+Output files:
+
+```text
+3_integrated_table/<paper_idx>.json
+5_integrated_table_info.json
+```
+
+Each paper usually has two extraction paths:
+
+```json
+{
+  "table": "...",
+  "text": "..."
+}
+```
+
+If no usable data is found, a value may be `"None"`.
+
+### 6.6 DataMerger: Cross-Paper Data Merge
+
+File: `agents/data_merger.py`
+
+Responsibilities:
+
+1. Read all extracted paper-level tables.
+2. Parse Markdown tables.
+3. Map extracted columns to the standard columns in the user template.
+4. Add a `Reference` column to record the source paper.
+5. Use an LLM to normalize numerical fields, for example:
+   - Remove thousand separators.
+   - Convert percentages to decimals.
+   - Average numerical ranges.
+   - Convert unprocessable values to `None`.
+
+Output file:
+
+```text
+meta_analysis.csv
+```
+
+This CSV file is the main structured dataset for later analysis and reporting.
+
+### 6.7 DataAnalyst: Analysis and Visualization
+
+File: `agents/data_analyst.py`
+
+Responsibilities:
+
+1. Read `meta_analysis.csv`.
+2. Drop the `Reference` column.
+3. Ask the LLM to generate three visualization functions:
+   - `clustering(data)`
+   - `classification(data)`
+   - `regression(data)`
+4. Execute the generated code and save figures.
+
+Output files:
+
+```text
+4_visualization/clustering.png
+4_visualization/classification.png
+4_visualization/regression.png
+```
+
+Important note: this stage uses `exec(code)` to run LLM-generated Python code. In production-like settings, use restricted permissions, a trusted model, and an isolated runtime.
+
+### 6.8 Reporter: Report Generation
+
+File: `agents/reporter.py`
+
+Responsibilities:
+
+1. Read `meta_analysis.csv`.
+2. Read visualization images.
+3. Read paper titles as references.
+4. Ask the LLM to generate a Markdown Meta-analysis report.
+
+Output file:
+
+```text
+meta_analysis_report.md
+```
+
+The report attempts to include methods, results, figures, and references.
+
+## 7. Full Run: Command-Line Mode
 
 This section explains how to run the complete Manalyzer pipeline directly through `workflow/main.py`. Command-line mode does not use browser interaction, and is suitable for servers, remote terminals, batch experiments, and one-off debugging.
 
-### 6.1 Direct Run Commands
+### 7.1 Direct Run Commands
 
 If dependencies are installed and the task inputs in `workflow/main.py` have already been edited, including `filed`, `topic_of_interest`, and `table_template`, run the following commands from the repository root:
 
@@ -202,6 +394,10 @@ The complete command-line sequence is:
 
 ```bash
 cd /path/to/Manalyzer
+python -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
 export LLM_API_KEY="your-api-key"
 export LLM_BASE_URL="your-api-base-url"
 export MINERU_TOKEN="your-mineru-api-key"
@@ -214,11 +410,11 @@ If you only want to verify that the repository has no obvious static issues with
 python -m unittest discover -s tests
 ```
 
-### 6.2 Confirm Runtime Requirements
+### 7.2 Confirm Runtime Requirements
 
 Before running the full pipeline, check the following requirements:
 
-1. Required dependencies are installed, especially `structai`, `arxiv`, `openai`, `pandas`, `scikit-learn`, `matplotlib`, `Pillow`, `python-Levenshtein`, `markdown`, and `beautifulsoup4`.
+1. Required dependencies have been installed with `python -m pip install -r requirements.txt`.
 2. LLM environment variables are configured:
 
 ```bash
@@ -246,7 +442,7 @@ The path should look like:
 
 5. The selected search and download sources are reachable. The default workflow uses arXiv, so arXiv access is required.
 
-### 6.3 Edit Task Inputs
+### 7.3 Edit Task Inputs
 
 In command-line mode, task inputs are defined in `workflow/main.py`. Open that file and edit three main parts.
 
@@ -289,7 +485,7 @@ table_template = """
 
 The template defines the column structure of the final `meta_analysis.csv`. When editing it, keep the Markdown table complete: header row, separator row, and at least one example row.
 
-### 6.4 Edit Paper Sources and Search Size
+### 7.4 Edit Paper Sources and Search Size
 
 The paper collection call in `workflow/main.py` is:
 
@@ -320,7 +516,7 @@ paper_collector(
 )
 ```
 
-### 6.5 Edit the Number of Selected Papers
+### 7.5 Edit the Number of Selected Papers
 
 After paper review, the workflow calls:
 
@@ -336,7 +532,7 @@ select_paper(save_dir, -1)
 
 Processing more papers significantly increases table conversion, extraction, and report-generation cost.
 
-### 6.6 Run the Complete Pipeline
+### 7.6 Run the Complete Pipeline
 
 After editing inputs and configuring environment variables, run from the repository root:
 
@@ -346,7 +542,7 @@ python workflow/main.py
 
 The terminal will print stage logs, and each agent also writes logs under `data/<field>/<timestamp>/log/`. Every run creates a new timestamped directory and does not overwrite previous runs.
 
-### 6.7 Track Progress in Serial Mode
+### 7.7 Track Progress in Serial Mode
 
 Command-line mode has no browser progress bar. The most reliable way to track progress is to check whether stage outputs exist:
 
@@ -359,7 +555,7 @@ Command-line mode has no browser progress bar. The most reliable way to track pr
 7. Images under `4_visualization/`: analysis and visualization finished.
 8. `meta_analysis_report.md`: report generation finished.
 
-### 6.8 Recommended Manual Review After a Full Run
+### 7.8 Recommended Manual Review After a Full Run
 
 After the full pipeline finishes, do not read only the final report. A more reliable review order is:
 
@@ -372,7 +568,7 @@ After the full pipeline finishes, do not read only the final report. A more reli
 7. Open `4_visualization/*.png` and confirm that figures are not empty or obviously invalid.
 8. Finally read `meta_analysis_report.md` and cross-check it with the intermediate files.
 
-### 6.9 Common Failure Points
+### 7.9 Common Failure Points
 
 Common failure points in command-line full runs include:
 
@@ -385,196 +581,6 @@ Common failure points in command-line full runs include:
 - Irregular LLM-generated Markdown tables: merge logic may skip rows or columns.
 
 When debugging, inspect the `log/` directory in the run output first, instead of relying only on the last terminal lines.
-
-## 7. Pipeline Stage Details
-
-`workflow/main.py` runs nine stages in order. Understanding these stages helps debug the full pipeline and identify which module produced each output file.
-
-### 7.1 PaperCollector: Paper Search and Download
-
-File: `agents/paper_collector.py`
-
-Responsibilities:
-
-1. Generate search keyword groups from the user topic.
-2. Search papers through arXiv or Crossref.
-3. Download PDF files.
-4. Write `0_paper_info.json`.
-
-The default search engine is `arxiv`. If `crossref` is used, DOI-based downloading may use the Sci-Hub path. That path depends on external website availability and may have compliance implications. Users should evaluate it before use.
-
-Typical output:
-
-```text
-data/<field>/<timestamp>/
-├── 0_pdf/
-└── 0_paper_info.json
-```
-
-Example `0_paper_info.json`:
-
-```json
-{
-  "00000": {
-    "title": "Example Paper Title",
-    "url": "https://arxiv.org/pdf/xxxx.xxxxx",
-    "pdf_path": "data/environment/2026_0209_185427/0_pdf/00000.pdf"
-  }
-}
-```
-
-### 7.2 PaperParser: PDF Parsing
-
-File: `agents/paper_parser.py`
-
-Responsibilities:
-
-1. Read `0_paper_info.json`.
-2. Call `structai.read_pdf(pdf_paths)`.
-3. Locate each paper's `*_content_list.json` and `full.md`.
-4. Write `1_content_list_info.json`.
-
-This stage depends on PDF parsing support from MinerU or `structai`. If `MINERU_TOKEN` is not configured or the service is unavailable, this stage may fail.
-
-### 7.3 PaperReviewer: Paper Screening
-
-File: `agents/paper_reviewer.py`
-
-Responsibilities:
-
-1. Read each paper's Markdown text.
-2. Clean short and invalid content.
-3. Score each paper independently:
-   - `Topic Relevance`
-   - `Feasibility`
-4. Score relative relevance within batches:
-   - `Relative Score`
-5. Compute:
-   - `Final Score = (Topic Relevance + Feasibility) * Relative Score`
-
-Output files:
-
-```text
-2_paper_score.json
-3_selected_paper.json
-```
-
-`select_paper(save_dir, 10)` selects the top 10 papers by final score. If fewer papers exist, all available papers may be retained.
-
-### 7.4 TableProcessor: Table and Figure Conversion
-
-File: `agents/table_processor.py`
-
-Responsibilities:
-
-1. Read `3_selected_paper.json`.
-2. Traverse each paper's content list.
-3. Identify tables, images, and charts.
-4. Use a vision LLM to convert tables to Markdown or images to textual descriptions.
-5. Write `2_text/<paper_idx>.json` and `4_converted_paper.json`.
-
-This stage strongly affects later extraction quality. If table conversion is inaccurate, the final extracted data will also be less reliable.
-
-### 7.5 DataExtratorWithChecker: Extraction and Feedback Checking
-
-File: `agents/data_extrator_checker.py`
-
-Responsibilities:
-
-1. Collect candidate information from table and text paths.
-2. First-level filtering: decide whether each table or section may contain relevant data.
-3. Second-level integration: convert relevant data into the user-provided table schema.
-4. Check the result using:
-   - `Data Accuracy`
-   - `Semantic Consistency`
-   - `Data Completeness`
-   - `Overall Score`
-5. If the checker rejects the answer, regenerate the extraction using feedback.
-
-Output files:
-
-```text
-3_integrated_table/<paper_idx>.json
-5_integrated_table_info.json
-```
-
-Each paper usually has two extraction paths:
-
-```json
-{
-  "table": "...",
-  "text": "..."
-}
-```
-
-If no usable data is found, a value may be `"None"`.
-
-### 7.6 DataMerger: Cross-Paper Data Merge
-
-File: `agents/data_merger.py`
-
-Responsibilities:
-
-1. Read all extracted paper-level tables.
-2. Parse Markdown tables.
-3. Map extracted columns to the standard columns in the user template.
-4. Add a `Reference` column to record the source paper.
-5. Use an LLM to normalize numerical fields, for example:
-   - Remove thousand separators.
-   - Convert percentages to decimals.
-   - Average numerical ranges.
-   - Convert unprocessable values to `None`.
-
-Output file:
-
-```text
-meta_analysis.csv
-```
-
-This CSV file is the main structured dataset for later analysis and reporting.
-
-### 7.7 DataAnalyst: Analysis and Visualization
-
-File: `agents/data_analyst.py`
-
-Responsibilities:
-
-1. Read `meta_analysis.csv`.
-2. Drop the `Reference` column.
-3. Ask the LLM to generate three visualization functions:
-   - `clustering(data)`
-   - `classification(data)`
-   - `regression(data)`
-4. Execute the generated code and save figures.
-
-Output files:
-
-```text
-4_visualization/clustering.png
-4_visualization/classification.png
-4_visualization/regression.png
-```
-
-Important note: this stage uses `exec(code)` to run LLM-generated Python code. In production-like settings, use restricted permissions, a trusted model, and an isolated runtime.
-
-### 7.8 Reporter: Report Generation
-
-File: `agents/reporter.py`
-
-Responsibilities:
-
-1. Read `meta_analysis.csv`.
-2. Read visualization images.
-3. Read paper titles as references.
-4. Ask the LLM to generate a Markdown Meta-analysis report.
-
-Output file:
-
-```text
-meta_analysis_report.md
-```
-
-The report attempts to include methods, results, figures, and references.
 
 ## 8. Output Directory Example
 
@@ -609,7 +615,7 @@ For debugging, check files in stage order:
 
 ## 9. Visual WebUI Run
 
-The visual WebUI run uses the same Manalyzer pipeline as the command-line full run in Section 6. Paper collection, PDF parsing, paper review, table and figure conversion, data extraction, data merging, analysis visualization, and report generation keep the same stage order.
+The visual WebUI run uses the same Manalyzer pipeline as the command-line full run in Section 7. Paper collection, PDF parsing, paper review, table and figure conversion, data extraction, data merging, analysis visualization, and report generation keep the same stage order.
 
 The difference is the interaction layer. In command-line mode, task inputs are edited directly in `workflow/main.py`. In WebUI mode, `Field`, `Topic of Interest`, and `Table Template` are submitted through a browser form, while logs, output files, and stage progress are displayed on the page. In other words, the WebUI adds a frontend interaction layer; it does not introduce a separate analysis pipeline.
 
@@ -617,6 +623,12 @@ The WebUI is composed of two cooperating processes:
 
 1. `workflow/main_webui.py` runs the background workflow.
 2. `webui/weiui.py` runs the Flask web server.
+
+If dependencies have not been installed yet, first run this command from the repository root:
+
+```bash
+python -m pip install -r requirements.txt
+```
 
 Use two terminals.
 
@@ -724,6 +736,7 @@ The smoke tests cover:
 - Request timeouts in tool modules.
 - Regression coverage for newline handling in `DataExtratorWithChecker`.
 - Boundary behavior for `PaperParser` and `DataMerger`.
+- `requirements.txt` coverage for the current runtime dependency list.
 
 The smoke tests do not call:
 
@@ -744,7 +757,7 @@ python -m unittest discover -s tests
 
 ### 12.1 Why does the full workflow fail with missing `structai`
 
-`structai` is not part of this repository and is not installed by a dependency file. You need to install a compatible version or use an environment where it is already provided.
+This usually means `python -m pip install -r requirements.txt` has not been executed in the current Python environment, or it was executed in a different virtual environment. `structai` is not part of this repository's source code, but it is listed in the dependency file. If it is still missing, first confirm that the `python` used to run Manalyzer is the same interpreter used to install dependencies.
 
 ### 12.2 Why are some retrieved papers not highly relevant
 
@@ -776,7 +789,7 @@ To understand the repository efficiently:
 python -m unittest discover -s tests
 ```
 
-6. After configuring dependencies and APIs, try:
+6. After installing dependencies with `requirements.txt` and configuring APIs, try:
 
 ```bash
 python workflow/main.py
