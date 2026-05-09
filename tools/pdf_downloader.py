@@ -4,7 +4,13 @@ import re
 import urllib.request
 from tools.scihub import SciHub
 
-sh = SciHub()
+sh = None
+
+def get_scihub():
+    global sh
+    if sh is None:
+        sh = SciHub()
+    return sh
 
 def download_pdf(url, dir='./', name=None):
     if name is None:
@@ -14,7 +20,7 @@ def download_pdf(url, dir='./', name=None):
     
     try:
         if 'arxiv' in url:
-            response = requests.get(url)
+            response = requests.get(url, timeout=30)
             response.raise_for_status()
 
             with open(save_path, 'wb') as file:
@@ -23,7 +29,7 @@ def download_pdf(url, dir='./', name=None):
             # print(f"download to {save_path}")
             return True
         else:
-            result = sh.download(url, path=save_path)
+            result = get_scihub().download(url, path=save_path)
             if 'err' in result:
                 # print(f"download wrong {result['err']}")
                 return False
@@ -52,24 +58,20 @@ def download_pdf_with_doi(doi:str, dir='./', name=None):
     os.makedirs(dir, exist_ok=True)
     save_path = os.path.join(dir, name)
 
-    content = requests.get(paper_url, headers=headers)
+    content = requests.get(paper_url, headers=headers, timeout=30)
     # print(content)
     download_url = re.findall(pattern, content.text)
     # print(download_url)
     for url in download_url:
         try:
             req = urllib.request.Request(url, headers=headers)
-            u = urllib.request.urlopen(req, timeout=5)
-
-            f = open(save_path, 'wb')
-
-            block_sz = 8192
-            while True:
-                buffer = u.read(block_sz)
-                if not buffer:
-                    break
-                f.write(buffer)
-            f.close()
+            with urllib.request.urlopen(req, timeout=5) as u, open(save_path, 'wb') as f:
+                block_sz = 8192
+                while True:
+                    buffer = u.read(block_sz)
+                    if not buffer:
+                        break
+                    f.write(buffer)
             # print(f"download to {save_path}")
             return True
         except Exception as e:

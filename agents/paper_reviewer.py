@@ -131,7 +131,7 @@ class PaperReviewer(LLMAgent):
         score = self.safe_api(query, paragraph_score_system_prompt)
         try:
             score = int(score)
-        except:
+        except (TypeError, ValueError):
             score = 10
         return score
     

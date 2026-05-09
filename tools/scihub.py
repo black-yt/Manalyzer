@@ -12,12 +12,10 @@ import argparse
 import hashlib
 # import logging
 import os
-import pdb
 
 import requests
 import urllib3
 from bs4 import BeautifulSoup
-from retrying import retry
 
 # log config
 # logging.basicConfig()
@@ -30,6 +28,7 @@ urllib3.disable_warnings()
 # constants
 SCHOLARS_BASE_URL = 'https://scholar.google.com/scholar?hl=zh-CN'
 HEADERS = {'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64; rv:27.0) Gecko/20100101 Firefox/27.0'}
+FALLBACK_SCIHUB_URLS = ['https://sci-hub.ren']
 
 class SciHub(object):
     """
@@ -40,7 +39,7 @@ class SciHub(object):
     def __init__(self):
         self.sess = requests.Session()
         self.sess.headers = HEADERS
-        self.available_base_url_list = self._get_available_scihub_urls()
+        self.available_base_url_list = self._get_available_scihub_urls() or FALLBACK_SCIHUB_URLS.copy()
         self.base_url = self.available_base_url_list[0] + '/'
 
     def _get_available_scihub_urls(self):
@@ -48,7 +47,10 @@ class SciHub(object):
         Finds available scihub urls via http://tool.yovisun.com/scihub/
         '''
         urls = []
-        res = requests.get('http://tool.yovisun.com/scihub/')
+        try:
+            res = requests.get('http://tool.yovisun.com/scihub/', timeout=10)
+        except requests.RequestException:
+            return urls
         s = self._get_soup(res.content)
         for a in s.find_all('a', href=True):
             if 'sci-hub.' in a['href']:
@@ -67,7 +69,7 @@ class SciHub(object):
                 "https": proxy, }
 
     def _change_base_url(self):
-        if not self.available_base_url_list:
+        if len(self.available_base_url_list) <= 1:
             raise Exception('Ran out of valid sci-hub urls')
         del self.available_base_url_list[0]
         self.base_url = self.available_base_url_list[0] + '/'
@@ -86,7 +88,7 @@ class SciHub(object):
         while True:
             try:
                 # keywords search 
-                res = self.sess.get(SCHOLARS_BASE_URL, params={'q': query, 'start': start, 'as_ylo': ylo}) 
+                res = self.sess.get(SCHOLARS_BASE_URL, params={'q': query, 'start': start, 'as_ylo': ylo}, timeout=30)
   
                 # alternative codes:
                 # scholar_filter = '&as_ylo={}&as_yhi={}&start={}'.format(ylo,yhi,start)
@@ -129,7 +131,6 @@ class SciHub(object):
 
             start += 10
 
-    # @retry(wait_random_min=100, wait_random_max=1000, stop_max_attempt_number=10)
     def download(self, identifier, destination='', path=None):
         """
         Downloads a paper from sci-hub given an indentifier (DOI, PMID, URL).
@@ -173,7 +174,7 @@ class SciHub(object):
             # and requests doesn't know how to download them.
             # as a hacky fix, you can add them to your store
             # and verifying would work. will fix this later.
-            res = self.sess.get(url, verify=False)
+            res = self.sess.get(url, verify=False, timeout=30)
 
             if res.headers['Content-Type'] != 'application/pdf':
                 self._change_base_url()
@@ -218,7 +219,7 @@ class SciHub(object):
         Sci-Hub embeds papers in an iframe. This function finds the actual
         source url which looks something like https://moscow.sci-hub.io/.../....pdf.
         """
-        res = self.sess.get(self.base_url + identifier, verify=False)
+        res = self.sess.get(self.base_url + identifier, verify=False, timeout=30)
         s = self._get_soup(res.content)
         iframe = s.find('iframe')
         if iframe:

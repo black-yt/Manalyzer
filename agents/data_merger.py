@@ -97,14 +97,10 @@ class DataMerger(LLMAgent):
         for paper_id, paper_info in self.paper_info_dict.items():
             with open(paper_info['integrated_table_path'], 'r', encoding='utf-8') as file:
                 integrated_table = json.load(file)
-            try:
-                self.integrated_table_list.append((paper_id, integrated_table['table']['integrated_table']))
-            except:
-                pass
-            try:
-                self.integrated_table_list.append((paper_id, integrated_table['text']['integrated_table']))
-            except:
-                pass
+            for source_type in ['table', 'text']:
+                source_output = integrated_table.get(source_type)
+                if isinstance(source_output, dict) and source_output.get('integrated_table'):
+                    self.integrated_table_list.append((paper_id, source_output['integrated_table']))
         self.logger.info(f'Loaded {len(self.integrated_table_list)} integrated tables')
     
 
@@ -143,6 +139,9 @@ class DataMerger(LLMAgent):
 
     def refine_table(self, merge_integrated_table, max_try=3):
         merge_integrated_table_dict_list = merge_integrated_table.to_dict(orient='records')
+        if len(merge_integrated_table_dict_list) == 0:
+            return merge_integrated_table
+
         mp_inp_list = []
         batch_size = 20
         split_list = [merge_integrated_table_dict_list[i:i + batch_size] for i in range(0, len(merge_integrated_table_dict_list), batch_size)]
@@ -157,8 +156,8 @@ class DataMerger(LLMAgent):
 
                 merge_integrated_table = pd.DataFrame(refined_table)
                 break
-            except:
-                self.logger.error(f'Error in refining table, try {try_idx + 1}')
+            except Exception as e:
+                self.logger.error(f'Error in refining table, try {try_idx + 1}: {e}')
                 
         return merge_integrated_table
 

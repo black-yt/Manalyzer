@@ -219,14 +219,15 @@ class DataExtratorWithChecker(LLMAgent):
                     elif content['converted_type'] == 'text':
                         self.paper_text_dict[paper_idx]['images'].append(content['converted_content'])
 
-            self.paper_text_dict[paper_idx] = [f"{k}:/n{'/n'.join(v)}" for k, v in self.paper_text_dict[paper_idx].items()]
+            self.paper_text_dict[paper_idx] = [k + ":\n" + "\n".join(v) for k, v in self.paper_text_dict[paper_idx].items()]
             self.paper_text_dict[paper_idx] = [text for text in self.paper_text_dict[paper_idx] if len(text) >= 20 and count_consecutive_digits(text) >= 2]
 
         self.logger.info(f'Load {len(self.paper_info_dict)} papers')
 
 
     def first_level_extract(self, part_list, part_type, topic_of_interest):
-        assert part_type in ['table', 'section'], f'part_type {part_type} not in [table, section]'
+        if part_type not in ['table', 'section']:
+            raise ValueError(f'part_type {part_type} not in [table, section]')
         all_part_text = ''
         part_num = len(part_list)
         for part_idx, part in enumerate(part_list):
@@ -269,7 +270,8 @@ class DataExtratorWithChecker(LLMAgent):
     
 
     def second_level_extract(self, part_list, part_type, topic_of_interest, table_template, **kwargs):
-        assert part_type in ['table', 'section'], f'part_type {part_type} not in [table, section]'
+        if part_type not in ['table', 'section']:
+            raise ValueError(f'part_type {part_type} not in [table, section]')
 
         reference_answer = kwargs.get('reference_answer', None)
         suggestion = kwargs.get('suggestion', None)
@@ -310,7 +312,8 @@ class DataExtratorWithChecker(LLMAgent):
             table_explanation = responses
         # print(table_explanation)
         # print()
-        assert table_explanation is not None, f"[===ERROR===][TableExtractor][Failed to get integrated table to markdown]"
+        if table_explanation is None:
+            raise RuntimeError("[===ERROR===][TableExtractor][Failed to get integrated table to markdown]")
         table_explanation_dict = self.separate_table_explanation(table_explanation)
         output_dict = {}
         output_dict['system_prompt'] = system_prompt
@@ -325,7 +328,8 @@ class DataExtratorWithChecker(LLMAgent):
     def check(self, extract_output_dict):
         query = query_prompt_check.replace('<INPUT1>', extract_output_dict['query']).replace('<INPUT2>', extract_output_dict['integrated_table']).replace('<INPUT3>', extract_output_dict['explanation'])
         score = self.safe_api(query, self.system_prompt_check, return_example={'Data Accuracy': 9, 'Semantic Consistency': 6, 'Data Completeness': 8, 'Overall Score': 7, 'Suggestion': ''})
-        assert score is not None, "[===ERROR===][Checker][Failed to obtain score]"
+        if score is None:
+            raise RuntimeError("[===ERROR===][Checker][Failed to obtain score]")
         if score['Overall Score'] < self.check_threshold:
             score['Decision'] = 'reject'
         else:

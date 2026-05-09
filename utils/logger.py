@@ -1,6 +1,10 @@
 import logging
 import os
-os.makedirs('webui/data', exist_ok=True)
+
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+WEBUI_DATA_DIR = os.path.join(REPO_ROOT, 'webui', 'data')
+CHAT_LOG_PATH = os.path.join(WEBUI_DATA_DIR, 'chat.log')
+os.makedirs(WEBUI_DATA_DIR, exist_ok=True)
 
 class LogFormatter(logging.Formatter):
     RESET = "\033[0m"
@@ -28,8 +32,10 @@ def create_logger(name, log_directory, level='debug'):
     os.makedirs(log_directory, exist_ok=True)
 
     logger = logging.getLogger(name)
-    
-    logger.handlers.clear()
+
+    for handler in logger.handlers[:]:
+        handler.close()
+        logger.removeHandler(handler)
     if level == 'debug':
         logger.setLevel(logging.DEBUG)
     elif level == 'info':
@@ -53,7 +59,7 @@ def create_logger(name, log_directory, level='debug'):
     file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
     logger.addHandler(file_handler)
 
-    file_handler = logging.FileHandler('webui/data/chat.log')
+    file_handler = logging.FileHandler(CHAT_LOG_PATH)
     file_handler.setFormatter(logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s"))
     logger.addHandler(file_handler)
     return logger

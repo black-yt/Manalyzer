@@ -18,10 +18,14 @@ class PaperParser:
         pdf_paths = []
         for paper_idx, paper_info in self.paper_info_dict.items():
             pdf_paths.append(paper_info['pdf_path'])
-        read_pdf(pdf_paths)
+        if len(pdf_paths) > 0:
+            read_pdf(pdf_paths)
 
         for paper_idx, paper_info in self.paper_info_dict.items():
-            content_list_file_name = os.path.basename(get_all_file_paths(paper_info['pdf_path'].replace(".pdf", ""), "_content_list.json")[0])
+            content_list_paths = get_all_file_paths(paper_info['pdf_path'].replace(".pdf", ""), "_content_list.json")
+            if len(content_list_paths) == 0:
+                raise FileNotFoundError(f"content list not found for {paper_info['pdf_path']}")
+            content_list_file_name = os.path.basename(content_list_paths[0])
             paper_info['content_list_path'] = paper_info['pdf_path'].replace(".pdf", f"/{content_list_file_name}")
             paper_info['md_path'] = paper_info['pdf_path'].replace(".pdf", "/full.md")
         

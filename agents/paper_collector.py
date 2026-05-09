@@ -54,7 +54,8 @@ class PaperCollector(LLMAgent):
                 save_dir = 'data',
                 search_engine = 'arxiv' # 'crossref'
                 ):
-        assert search_engine in ['crossref', 'arxiv'], "Please select 'crossref' or 'arxiv'"
+        if search_engine not in ['crossref', 'arxiv']:
+            raise ValueError("Please select 'crossref' or 'arxiv'")
         super().__init__(api_key, api_base, model_version, system_prompt, max_tokens, temperature, http_client, headers, time_limit, max_try, use_responses_api)
         self.system_prompt = self.system_prompt.replace('<INPUT1>', field)
         self.field = field
@@ -86,9 +87,16 @@ class PaperCollector(LLMAgent):
         if paper_list is not None:
             for paper_title in paper_list:
                 self.logger.info(f'Search title: {paper_title}')
-                paper_info = self.search(paper_title, 1)[0]
-                if paper_info not in paper_list_all:
-                    paper_list_all.append(paper_info)
+                try:
+                    search_result = self.search(paper_title, 1)
+                    if search_result:
+                        paper_info = search_result[0]
+                        if paper_info not in paper_list_all:
+                            paper_list_all.append(paper_info)
+                    else:
+                        self.logger.error(f'Search failed for title: {paper_title}')
+                except Exception as e:
+                    self.logger.error(f'Search failed for title {paper_title}: {e}')
         
         if paper_search_num > 0:
             query = query_prompt.replace('<INPUT1>', topic_of_interest)
@@ -99,11 +107,13 @@ class PaperCollector(LLMAgent):
                 self.logger.info(f'Search using keywords: {keywords_str}')
                 try:
                     paper_list = self.search(keywords_str, paper_search_num)
+                    if paper_list is None:
+                        raise RuntimeError('empty search result')
                     for paper_info in paper_list:
                         if paper_info not in paper_list_all:
                             paper_list_all.append(paper_info)
-                except:
-                    self.logger.error(f'Search failed')
+                except Exception as e:
+                    self.logger.error(f'Search failed: {e}')
         
         if doi_list is not None:
             for doi in doi_list:
@@ -128,6 +138,10 @@ class PaperCollector(LLMAgent):
                     break
                 if down_try < max_down_try-1:
                     time.sleep(1)
+
+        if not os.path.exists(self.paper_info_path):
+            with open(self.paper_info_path, 'w', encoding='utf-8') as f:
+                json.dump(paper_info_dict, f, ensure_ascii=False, indent=4)
         
         self.logger.info(f'{len(paper_info_dict)} papers downloaded in {self.pdf_save_dir}')
         self.logger.info(f'Saved paper information in {self.paper_info_path}')

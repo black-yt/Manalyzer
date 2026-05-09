@@ -1,5 +1,6 @@
 import os
-chat_dir = 'webui/data/'
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+chat_dir = os.path.join(REPO_ROOT, 'webui', 'data')
 os.makedirs(chat_dir, exist_ok=True)
 if os.path.exists(os.path.join(chat_dir, "user_input.json")):
     os.remove(os.path.join(chat_dir, "user_input.json"))
@@ -35,7 +36,7 @@ if __name__ == '__main__':
         try:
             with open(user_input_path, 'r', encoding='utf-8') as file:
                 user_input = json.load(file)
-        except:
+        except (FileNotFoundError, json.JSONDecodeError):
             pass
         
         if isinstance(user_input, dict) and 'filed' in user_input and 'topic_of_interest' in user_input and 'table_template' in user_input:
@@ -49,7 +50,7 @@ if __name__ == '__main__':
 
     paper_collector(topic_of_interest, paper_search_num=2)
 
-    paper_parser = PaperParser(save_dir=save_dir, max_workers=2)
+    paper_parser = PaperParser(save_dir=save_dir)
     paper_parser()
 
     paper_reviewer = PaperReviewer(save_dir=save_dir, field=filed)

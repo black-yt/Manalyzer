@@ -7,12 +7,16 @@ import json
 app = Flask(__name__)
 CORS(app)
 
+CHAT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data')
+SAVE_INFO_PATH = os.path.join(CHAT_DIR, 'save_info.json')
+USER_INPUT_PATH = os.path.join(CHAT_DIR, 'user_input.json')
+CHAT_LOG_PATH = os.path.join(CHAT_DIR, 'chat.log')
 
-while not os.path.exists('data/save_info.json'):
+while not os.path.exists(SAVE_INFO_PATH):
     print("Waiting for save_info.json to be created...")
     time.sleep(1)
 
-with open('data/save_info.json', 'r', encoding='utf-8') as file:
+with open(SAVE_INFO_PATH, 'r', encoding='utf-8') as file:
     save_dir = json.load(file)[0]
 
 @app.route('/')
@@ -25,7 +29,7 @@ def submit_info():
     topic_of_interest = request.form.get('topic_of_interest', '')
     table_template = request.form.get('table_template', '')
     
-    with open('data/user_input.json', 'w', encoding='utf-8') as f:
+    with open(USER_INPUT_PATH, 'w', encoding='utf-8') as f:
         json.dump({'filed': field, 'topic_of_interest': topic_of_interest, 'table_template': table_template}, f, ensure_ascii=False, indent=4)
     
     return jsonify({'status': 'success'})
@@ -33,7 +37,7 @@ def submit_info():
 @app.route('/get_chat_log')
 def get_chat_log():
     try:
-        with open('data/chat.log', 'r') as f:
+        with open(CHAT_LOG_PATH, 'r') as f:
             content = f.read()
         return jsonify({'content': content})
     except FileNotFoundError:
@@ -62,7 +66,7 @@ def get_file_structure():
 @app.route('/get_progress')
 def get_progress():
     try:
-        with open('data/chat.log', 'r') as f:
+        with open(CHAT_LOG_PATH, 'r') as f:
             content = f.read()
 
         if 'Reporter' in content:

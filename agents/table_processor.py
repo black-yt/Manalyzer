@@ -2,7 +2,6 @@ import os
 from structai import LLMAgent, multi_thread
 from utils.logger import create_logger
 import json
-import base64
 
 
 def get_image_info(x, image_path_prefix):
@@ -235,7 +234,8 @@ class TableProcessor(LLMAgent):
         # print(query)
         # print()
         table_md = self.safe_api(query, system_prompt=system_prompt, return_dict=False, image_paths=[path])
-        assert table_md is not None, f"[===ERROR===][TableManager][Failed to convert images to markdown][{path}]"
+        if table_md is None:
+            raise RuntimeError(f"[===ERROR===][TableManager][Failed to convert images to markdown][{path}]")
         if 'markdown' in table_md:
             return {
                 'in_type': in_type,

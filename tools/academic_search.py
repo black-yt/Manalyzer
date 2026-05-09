@@ -2,12 +2,18 @@ import requests
 import arxiv
 from tools.scihub import SciHub
 
-sh = SciHub()
+sh = None
 arxiv_client = arxiv.Client()
 email = 'rosalinagibboneyreg98@gmail.com'
 
+def get_scihub():
+    global sh
+    if sh is None:
+        sh = SciHub()
+    return sh
+
 def search_scihub(query, rows=5):
-    r = sh.search(query, limit=rows)
+    r = get_scihub().search(query, limit=rows)
     results = []
     for paper in r['papers']:
         results.append({
@@ -24,7 +30,7 @@ def search_crossref(query, rows=5):
         'mailto': email
     }
     
-    response = requests.get(url, params=params)
+    response = requests.get(url, params=params, timeout=30)
     if response.status_code == 200:
         data = response.json()
         result = []
@@ -45,7 +51,7 @@ def search_crossref(query, rows=5):
 
 def search_semantic_scholar(query, rows=5):
     url = f'https://api.semanticscholar.org/graph/v1/paper/search?query={query}&limit={rows}'
-    response = requests.get(url)
+    response = requests.get(url, timeout=30)
     
     if response.status_code == 200:
         papers = response.json().get('data', [])
