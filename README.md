@@ -84,8 +84,6 @@ If you would like to cite our work, please use the following BibTeX.
 
 If you find this work helpful, please consider to **star⭐** this [repo](https://github.com/black-yt/Manalyzer). Thanks for your support! 🤩
 
-[![black-yt/Manalyzer Stargazers](https://reporoster.com/stars/black-yt/Manalyzer)](https://github.com/black-yt/Manalyzer/stargazers)
-
 [![Star History Chart](https://api.star-history.com/svg?repos=black-yt/Manalyzer&type=date&legend=top-left)](https://www.star-history.com/#black-yt/Manalyzer&type=date&legend=top-left)
 
 <p align="right"><a href="#top">🔝Back to top</a></p>
