@@ -683,7 +683,7 @@ python benchmark/1_extractor.py
 
 This script:
 
-1. Loads the `CoCoOne/Manalyzer` dataset from Hugging Face.
+1. Loads the `black-yt/Manalyzer` dataset from Hugging Face.
 2. Calls the configured model through `utils.eval.EvaluationModel`.
 3. Writes extraction results to:
 

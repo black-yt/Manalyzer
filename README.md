@@ -6,7 +6,7 @@
 
 [![Official Site](https://img.shields.io/badge/Official%20Site-333399.svg?logo=homepage)](https://black-yt.github.io/meta-analysis-page/)&#160;
 <a href="https://arxiv.org/pdf/2505.20310" target="_blank"><img src="https://img.shields.io/badge/arXiv-b5212f.svg?logo=arxiv" height="21px"></a>
-[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace-gray)](https://huggingface.co/datasets/CoCoOne/Manalyzer)&#160;
+[![Hugging Face](https://img.shields.io/badge/%F0%9F%A4%97%20HuggingFace-gray)](https://huggingface.co/datasets/black-yt/Manalyzer)&#160;
 [![GitHub](https://img.shields.io/badge/GitHub-000000?logo=github&logoColor=white)](https://github.com/black-yt/Manalyzer)&#160;
 [![中文教程](https://img.shields.io/badge/%E4%B8%AD%E6%96%87-%E6%95%99%E7%A8%8B-2ea44f.svg)](./docs/tutorial_zh.md)&#160;
 [![Tutorial EN](https://img.shields.io/badge/Tutorial-EN-2ea44f.svg)](./docs/tutorial_en.md)&#160;

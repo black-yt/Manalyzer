@@ -679,7 +679,7 @@ python benchmark/1_extractor.py
 
 该脚本会：
 
-1. 从 Hugging Face 加载 `CoCoOne/Manalyzer` 数据集。
+1. 从 Hugging Face 加载 `black-yt/Manalyzer` 数据集。
 2. 使用 `utils.eval.EvaluationModel` 调用指定模型。
 3. 抽取结果写入：
 
